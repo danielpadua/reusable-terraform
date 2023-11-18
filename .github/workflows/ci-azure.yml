@@ -1,4 +1,4 @@
-name: Terraform reusable workflow
+name: Terraform ci reusable workflow for azure
 
 on:
   workflow_dispatch:
@@ -156,17 +156,14 @@ jobs:
                 az storage container create --name terraform --account-name ${{ inputs.tf-backend-storage }} --account-key $ACCOUNT_KEY
             fi
 
-  terraform:
-    name: Deploy infrastructure
+  terraform-ci:
+    name: Validate terraform
     needs: terraform-backend
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     defaults:
       run:
         working-directory: ${{ inputs.tf-dir }}
-
-    outputs:
-      static-site_api-key: ${{ steps.tf-outputs.outputs.static-site_api-key }}
 
     steps:
       - name: Checkout repo
@@ -214,29 +211,3 @@ jobs:
             export TF_VAR_$s
           done
           terraform plan -no-color -var-file=variables/${{ inputs.environment }}/terraform.tfvars
-
-      - name: Terraform apply
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_USE_OIDC: true
-          TF_SECRETS: ${{ toJson(secrets) }}
-        run: |
-          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" ); do
-            export TF_VAR_$s
-          done
-          terraform apply -auto-approve -var-file=variables/${{ inputs.environment }}/terraform.tfvars
-
-      - name: Terraform outputs
-        id: tf-outputs
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_USE_OIDC: true
-        run: |
-          TF_OUTPUTS=${{ inputs.tf-outputs }}
-          for o in ${TF_OUTPUTS//;/ } ; do
-            echo "$o=`terraform output -raw $o`" >> $GITHUB_OUTPUT
-          done

@@ -1,0 +1,223 @@
+name: Terraform cd reusable workflow for azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        type: choice
+        options:
+          - dev
+          - pro
+      location:
+        required: true
+        type: choice
+        options:
+          - eastus
+          - eastus2
+          - southcentralus
+          - westus2
+          - westus3
+          - australiaeast
+          - southeastasia
+          - northeurope
+          - swedencentral
+          - uksouth
+          - westeurope
+          - centralus
+          - southafricanorth
+          - centralindia
+          - eastasia
+          - japaneast
+          - koreacentral
+          - canadacentral
+          - francecentral
+          - germanywestcentral
+          - italynorth
+          - norwayeast
+          - polandcentral
+          - switzerlandnorth
+          - uaenorth
+          - brazilsouth
+          - centraluseuap
+          - israelcentral
+          - qatarcentral
+          - centralusstage
+          - eastusstage
+          - eastus2stage
+          - northcentralusstage
+          - southcentralusstage
+          - westusstage
+          - westus2stage
+          - asia
+          - asiapacific
+          - australia
+          - brazil
+          - canada
+          - europe
+          - france
+          - germany
+          - global
+          - india
+          - japan
+          - korea
+          - norway
+          - singapore
+          - southafrica
+          - sweden
+          - switzerland
+          - uae
+          - uk
+          - unitedstates
+          - unitedstateseuap
+          - eastasiastage
+          - southeastasiastage
+          - brazilus
+          - eastusstg
+          - northcentralus
+          - westus
+          - jioindiawest
+          - eastus2euap
+          - southcentralusstg
+          - westcentralus
+          - southafricawest
+          - australiacentral
+          - australiacentral2
+          - australiasoutheast
+          - japanwest
+          - jioindiacentral
+          - koreasouth
+          - southindia
+          - westindia
+          - canadaeast
+          - francesouth
+          - germanynorth
+          - norwaywest
+          - switzerlandwest
+          - ukwest
+          - uaecentral
+          - brazilsoutheast
+      resource-group:
+        required: true
+        type: string
+      tf-backend-storage:
+        required: true
+        type: string
+      tf-dir:
+        required: false
+        type: string
+        default: iac
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  terraform-backend:
+    name: Ensure terraform backend
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create terraform backend
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            if [ $(az group exists --name ${{ inputs.resource-group }}) = false ]; then
+              az group create --name ${{ inputs.resource-group }} --location ${{ inputs.location }}
+            fi
+            if [[ $(az storage account list --query "[?name=='${{ inputs.tf-backend-storage }}'"]) == "[]" ]]; then
+                az storage account create --resource-group ${{ inputs.resource-group }} --name ${{ inputs.tf-backend-storage }} --sku Standard_LRS --encryption-services blob
+            fi            
+            ACCOUNT_KEY=$(az storage account keys list --resource-group ${{ inputs.resource-group }} --account-name ${{ inputs.tf-backend-storage }} --query '[0].value' -o tsv)            
+            if [ $(az storage container exists --account-name ${{ inputs.tf-backend-storage }} --account-key $ACCOUNT_KEY --name terraform -o tsv | tr '[:upper:]' '[:lower:]') = false ]; then
+                az storage container create --name terraform --account-name ${{ inputs.tf-backend-storage }} --account-key $ACCOUNT_KEY
+            fi
+
+  terraform:
+    name: Deploy infrastructure
+    needs: terraform-backend
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.tf-dir }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform fmt -check
+
+      - name: Terraform init
+        id: init
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_USE_OIDC: true
+        run: terraform init -upgrade -backend-config="storage_account_name=${{ inputs.tf-backend-storage }}" -backend-config="container_name=terraform" -backend-config="resource_group_name=${{ inputs.resource-group }}" -backend-config="key=terraform.tfstate"
+
+      - name: Terraform validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        id: plan
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_USE_OIDC: true
+          TF_SECRETS: ${{ toJson(secrets) }}
+        run: |
+          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" ); do
+            export TF_VAR_$s
+          done
+          terraform plan -no-color -var-file=variables/${{ inputs.environment }}/terraform.tfvars
+
+      - name: Terraform apply
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_USE_OIDC: true
+          TF_SECRETS: ${{ toJson(secrets) }}
+        run: |
+          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" ); do
+            export TF_VAR_$s
+          done
+          terraform apply -auto-approve -var-file=variables/${{ inputs.environment }}/terraform.tfvars
