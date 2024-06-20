@@ -116,7 +116,7 @@ jobs:
           ARM_USE_OIDC: true
           TF_SECRETS: ${{ toJson(secrets) }}
         run: |
-          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" ); do
+          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key|ascii_downcase)=\(.value|tostring)\")|.[]" ); do
             export TF_VAR_$s
           done
           terraform plan -no-color -var-file=variables/${{ inputs.environment }}/terraform.tfvars
@@ -129,7 +129,7 @@ jobs:
           ARM_USE_OIDC: true
           TF_SECRETS: ${{ toJson(secrets) }}
         run: |
-          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key)=\(.value|tostring)\")|.[]" ); do
+          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key|ascii_downcase)=\(.value|tostring)\")|.[]" ); do
             export TF_VAR_$s
           done
           terraform apply -auto-approve -var-file=variables/${{ inputs.environment }}/terraform.tfvars
