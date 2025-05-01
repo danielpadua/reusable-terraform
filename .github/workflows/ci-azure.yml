@@ -61,7 +61,7 @@ jobs:
               az group create --name ${{ inputs.resource-group }} --location ${{ inputs.location }}
             fi
             if [[ $(az storage account list --query "[?name=='${{ inputs.tf-backend-storage }}'"]) == "[]" ]]; then
-                az storage account create --resource-group ${{ inputs.resource-group }} --name ${{ inputs.tf-backend-storage }} --sku Standard_LRS --encryption-services blob
+                az storage account create --resource-group ${{ inputs.resource-group }} --name ${{ inputs.tf-backend-storage }} --sku Standard_LRS --encryption-services blob --min-tls-version TLS1_2
             fi            
             ACCOUNT_KEY=$(az storage account keys list --resource-group ${{ inputs.resource-group }} --account-name ${{ inputs.tf-backend-storage }} --query '[0].value' -o tsv)            
             if [ $(az storage container exists --account-name ${{ inputs.tf-backend-storage }} --account-key $ACCOUNT_KEY --name terraform -o tsv | tr '[:upper:]' '[:lower:]') = false ]; then
