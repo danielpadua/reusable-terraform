@@ -55,14 +55,20 @@ jobs:
         with:
           inlineScript: |
             if [ $(az group exists --name ${{ inputs.resource-group }}) = false ]; then
+              echo "Creating resource group ${{ inputs.resource-group }} in location ${{ inputs.location }}..."
               az group create --name ${{ inputs.resource-group }} --location ${{ inputs.location }}
+              echo "Resource group created."
             fi
             if [[ $(az storage account list --query "[?name=='${{ inputs.tf-backend-storage }}'"]) == "[]" ]]; then
-                az storage account create --resource-group ${{ inputs.resource-group }} --name ${{ inputs.tf-backend-storage }} --sku Standard_LRS --encryption-services blob
-            fi            
+              echo "Creating storage account ${{ inputs.tf-backend-storage }} in resource group ${{ inputs.resource-group }}..."
+              az storage account create --resource-group ${{ inputs.resource-group }} --name ${{ inputs.tf-backend-storage }} --sku Standard_LRS --encryption-services blob --min-tls-version TLS1_2
+              echo "Storage account created."
+            fi
             ACCOUNT_KEY=$(az storage account keys list --resource-group ${{ inputs.resource-group }} --account-name ${{ inputs.tf-backend-storage }} --query '[0].value' -o tsv)            
             if [ $(az storage container exists --account-name ${{ inputs.tf-backend-storage }} --account-key $ACCOUNT_KEY --name terraform -o tsv | tr '[:upper:]' '[:lower:]') = false ]; then
-                az storage container create --name terraform --account-name ${{ inputs.tf-backend-storage }} --account-key $ACCOUNT_KEY
+              echo "Creating storage container 'terraform' in storage account ${{ inputs.tf-backend-storage }}..."
+              az storage container create --name terraform --account-name ${{ inputs.tf-backend-storage }} --account-key $ACCOUNT_KEY
+              echo "Storage container created."
             fi
 
   terraform-cd:
