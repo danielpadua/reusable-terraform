@@ -58,12 +58,13 @@ jobs:
         with:
           azcliversion: latest
           inlineScript: |
+            set -e
             if [ $(az group exists --name ${{ inputs.resource-group }}) = false ]; then
               echo "Creating resource group ${{ inputs.resource-group }} in location ${{ inputs.location }}..."
               az group create --name ${{ inputs.resource-group }} --location ${{ inputs.location }}
               echo "Resource group created."
             fi
-            if [[ $(az storage account list --query "[?name=='${{ inputs.tf-backend-storage }}'"]) == "[]" ]]; then
+            if [ $(az storage account list --query "[?name=='${{ inputs.tf-backend-storage }}'"]) = "[]" ]; then
               echo "Creating storage account ${{ inputs.tf-backend-storage }} in resource group ${{ inputs.resource-group }}..."
               az storage account create --resource-group ${{ inputs.resource-group }} --name ${{ inputs.tf-backend-storage }} --sku Standard_LRS --encryption-services blob --min-tls-version TLS1_2
               echo "Storage account created."
