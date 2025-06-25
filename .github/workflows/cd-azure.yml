@@ -1,8 +1,8 @@
 name: Terraform cd reusable workflow for azure
 
 on:
-  workflow_call:
-    inputs:
+  workflow_call:        
+    inputs:      
       environment:
         required: true
         type: string
@@ -19,6 +19,11 @@ on:
         required: false
         type: string
         default: iac
+    outputs:      
+      output:
+        description: The output of the terraform apply step        
+        value: ${{ jobs.terraform-cd.outputs.output }}
+    
     secrets:
       AZURE_CLIENT_ID:
         required: true
