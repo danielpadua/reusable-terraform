@@ -157,7 +157,7 @@ jobs:
             export TF_VAR_$s
           done
           terraform output -no-color -json
-          echo "tf_output=`terraform output -no-color -json`" >> $GITHUB_OUTPUT
+          echo "tf_output=`terraform output -no-color -json | jq -r -c`" >> $GITHUB_OUTPUT
 
       - name: Parse outputs
         id: parse_output
