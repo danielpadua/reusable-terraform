@@ -20,9 +20,9 @@ on:
         type: string
         default: iac
     outputs:      
-      output:
+      tf-output:
         description: The output of the terraform apply step        
-        value: ${{ jobs.terraform-cd.outputs.output }}
+        value: ${{ jobs.terraform-cd.outputs.tf-output }}
     
     secrets:
       AZURE_CLIENT_ID:
@@ -101,9 +101,9 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_wrapper: false
+        uses: hashicorp/setup-terraform@v3
+        # with:
+        #   terraform_wrapper: false
 
       - name: Terraform fmt
         id: fmt
@@ -137,6 +137,7 @@ jobs:
           terraform plan -no-color -var-file=variables/${{ inputs.environment }}/terraform.tfvars
 
       - name: Terraform apply
+        id: apply
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -149,22 +150,27 @@ jobs:
           done
           terraform apply -auto-approve -var-file=variables/${{ inputs.environment }}/terraform.tfvars
 
-      - name: Terraform output
-        id: output
-        env:
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ARM_USE_OIDC: true
-          TF_SECRETS: ${{ toJson(secrets) }}
-        run: |
-          for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key|ascii_downcase)=\(.value|tostring)\")|.[]" ); do
-            export TF_VAR_$s
-          done
-          terraform output -no-color -json
-          echo "tf_output=`terraform output -no-color -json | jq -r -c`" >> $GITHUB_OUTPUT
-
-      - name: Parse outputs
+      - name: Test outputs
         id: parse_output
         run: |
-          echo "output=${{ fromJson(steps.output.outputs.tf_output) }}" >> $GITHUB_OUTPUT
+          echo "${{ toJson(steps.output.outputs) }}"
+      
+      # - name: Export output
+      #   id: tf-output        
+      #   env:
+      #     ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      #     ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      #     ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      #     ARM_USE_OIDC: true
+      #     TF_SECRETS: ${{ toJson(secrets) }}
+      #   run: |
+      #     for s in $(echo $TF_SECRETS | jq -r "to_entries|map(\"\(.key|ascii_downcase)=\(.value|tostring)\")|.[]" ); do
+      #       export TF_VAR_$s
+      #     done
+      #     terraform output -no-color -json
+      #     echo "tf-output="${{ steps.apply.outputs }}"" >> $GITHUB_OUTPUT
+
+      # - name: Parse outputs
+      #   id: parse_output
+      #   run: |
+      #     echo "output=${{ fromJson(steps.output.outputs.tf_output) }}" >> $GITHUB_OUTPUT
