@@ -152,15 +152,15 @@ jobs:
       - name: Terraform output
         id: output
         run: |
-          TF_OUTPUT=$(terraform output -no-color -json | jq -r -c)
-          echo $TF_OUTPUT
+          TF_OUTPUT=$(terraform output -no-color -json | jq -r -c)          
           for key in $(echo "$TF_OUTPUT" | jq -r "keys[]"); do
             value=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".value")
             sensitive=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".sensitive")
             if [ "$sensitive" = "true" ]; then
               echo "::add-mask::$value"
             fi
-            echo "$key=$value" >> $GITHUB_OUTPUT                        
+            echo "Exporting output: $key=$value"
+            echo "$key="$value"" >> $GITHUB_OUTPUT                        
           done
       # - name: Export output
       #   id: tf-output        
