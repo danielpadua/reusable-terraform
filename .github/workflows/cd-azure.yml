@@ -20,9 +20,9 @@ on:
         type: string
         default: iac
     outputs:      
-      tf-output:
+      tf-outputs:
         description: The output of the terraform apply step        
-        value: ${{ jobs.terraform-cd.outputs.tf-output }}
+        value: ${{ jobs.terraform-cd.outputs.tf-outputs }}
     
     secrets:
       AZURE_CLIENT_ID:
@@ -87,7 +87,7 @@ jobs:
         working-directory: ${{ inputs.tf-dir }}
 
     outputs:
-      output: ${{ steps.parse_output.outputs.output }}
+      tf-outputs: ${{ steps.tf_outputs.outputs }}
 
     steps:
       - name: Checkout repo
@@ -102,8 +102,8 @@ jobs:
 
       - name: Setup terraform
         uses: hashicorp/setup-terraform@v3
-        # with:
-        #   terraform_wrapper: false
+        with:
+          terraform_wrapper: false
 
       - name: Terraform fmt
         id: fmt
@@ -137,7 +137,6 @@ jobs:
           terraform plan -no-color -var-file=variables/${{ inputs.environment }}/terraform.tfvars
 
       - name: Terraform apply
-        id: apply
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -150,10 +149,11 @@ jobs:
           done
           terraform apply -auto-approve -var-file=variables/${{ inputs.environment }}/terraform.tfvars
 
-      - name: Test outputs
-        id: parse_output
-        run: |
-          echo "${{ toJson(steps.apply.outputs) }}"
+      - name: Get outputs
+        uses: dflook/terraform-output@v2
+        id: tf_outputs
+        with:
+          path: ${{ inputs.tf-dir }}
       
       # - name: Export output
       #   id: tf-output        
