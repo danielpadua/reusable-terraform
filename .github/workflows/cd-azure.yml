@@ -87,7 +87,7 @@ jobs:
         working-directory: ${{ inputs.tf-dir }}
 
     outputs:
-      tf-outputs: ${{ steps.tf_outputs.outputs }}
+      tf-outputs: ${{ steps.output.outputs }}
 
     steps:
       - name: Checkout repo
@@ -149,12 +149,18 @@ jobs:
           done
           terraform apply -auto-approve -var-file=variables/${{ inputs.environment }}/terraform.tfvars
 
-      - name: Get outputs
-        uses: dflook/terraform-output@v2
-        id: tf_outputs
-        with:
-          path: ${{ inputs.tf-dir }}
-      
+      - name: Terraform output
+        id: output
+        run: |
+          TF_OUTPUT=$(terraform output -no-color -json)
+          for key in $(echo "$TF_OUTPUT" | jq -r "keys[]"); do
+            value=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".value")
+            sensitive=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".sensitive")
+            if [ "$sensitive" = "true" ]; then
+              echo "::add-mask::$value"
+            fi
+            echo "$key=$value" >> $GITHUB_OUTPUT                        
+          done
       # - name: Export output
       #   id: tf-output        
       #   env:
