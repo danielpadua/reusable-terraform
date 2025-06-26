@@ -20,9 +20,9 @@ on:
         type: string
         default: iac
     outputs:      
-      tf-outputs:
-        description: The output of the terraform apply step        
-        value: ${{ toJson(jobs.terraform-cd.outputs.tf-outputs) }}
+      tf-output-id:
+        description: ID of the terraform output artifact
+        value: ${{ jobs.terraform-cd.outputs.tf-output-id }}
     
     secrets:
       AZURE_CLIENT_ID:
@@ -87,7 +87,7 @@ jobs:
         working-directory: ${{ inputs.tf-dir }}
 
     outputs:      
-      tf-outputs: ${{ toJson(steps.output.outputs) }}
+      tf-output-id: ${{ steps.upload-output.outputs.artifact-id }}
 
     steps:
       - name: Checkout repo
@@ -149,23 +149,17 @@ jobs:
           done
           terraform apply -auto-approve -var-file=variables/${{ inputs.environment }}/terraform.tfvars
 
-      - name: Terraform output
-        id: output
+      - name: Terraform output        
         run: |
-          TF_OUTPUT=$(terraform output -no-color -json | jq -r -c)          
-          for key in $(echo "$TF_OUTPUT" | jq -r "keys[]"); do
-            value=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".value")
-            sensitive=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".sensitive")
-            if [ "$sensitive" = "true" ]; then
-              echo "::add-mask::$value"
-            fi
-            echo "Exporting output: $key=$value"
-            echo "$key="$value"" >> $GITHUB_OUTPUT                        
-          done
-      - name: Debug outputs
-        run: |
-          echo "Outputs: ${{ toJson(steps.output.outputs) }}"
-          
+          terraform output -no-color -json > output.json
+      
+      - name: Upload terraform output
+        id: upload-output
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-output
+          path: output.json
+                    
       # - name: Export output
       #   id: tf-output        
       #   env:
