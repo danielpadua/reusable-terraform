@@ -152,7 +152,8 @@ jobs:
       - name: Terraform output
         id: output
         run: |
-          TF_OUTPUT=$(terraform output -no-color -json)
+          TF_OUTPUT=$(terraform output -no-color -json | jq -r -c)
+          echo $TF_OUTPUT
           for key in $(echo "$TF_OUTPUT" | jq -r "keys[]"); do
             value=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".value")
             sensitive=$(echo "$TF_OUTPUT" | jq -r ".\"$key\".sensitive")
