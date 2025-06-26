@@ -162,6 +162,10 @@ jobs:
             echo "Exporting output: $key=$value"
             echo "$key="$value"" >> $GITHUB_OUTPUT                        
           done
+      - name: Debug outputs
+        run: |
+          echo "Outputs: ${{ toJson(steps.output.outputs) }}"
+          
       # - name: Export output
       #   id: tf-output        
       #   env:
