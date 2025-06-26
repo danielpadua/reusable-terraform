@@ -152,6 +152,7 @@ jobs:
       - name: Terraform output        
         run: |
           terraform output -no-color -json > output.json
+          cat output.json
       
       - name: Upload terraform output
         id: upload-output
