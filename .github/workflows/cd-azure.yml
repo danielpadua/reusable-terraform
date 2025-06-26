@@ -19,10 +19,14 @@ on:
         required: false
         type: string
         default: iac
-    outputs:      
-      tf-output-id:
-        description: ID of the terraform output artifact
-        value: ${{ jobs.terraform-cd.outputs.tf-output-id }}
+      tf-output-artifact-name:
+        required: false
+        type: string
+        default: tf-output
+      tf-output-filename:
+        required: false
+        type: string
+        default: output.json
     
     secrets:
       AZURE_CLIENT_ID:
@@ -86,9 +90,6 @@ jobs:
       run:
         working-directory: ${{ inputs.tf-dir }}
 
-    outputs:      
-      tf-output-id: ${{ steps.upload-output.outputs.artifact-id }}
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -151,15 +152,14 @@ jobs:
 
       - name: Terraform output        
         run: |
-          terraform output -no-color -json > output.json
-          cat output.json
+          terraform output -no-color -json > ${{ inputs.tf-output-filename }}
       
       - name: Upload terraform output
         id: upload-output
         uses: actions/upload-artifact@v4
         with:
-          name: tf-output
-          path: ${{ inputs.tf-dir }}/output.json
+          name: ${{ inputs.tf-output-artifact-name }}
+          path: ${{ inputs.tf-dir }}/${{ inputs.tf-output-filename }}
                     
       # - name: Export output
       #   id: tf-output        
