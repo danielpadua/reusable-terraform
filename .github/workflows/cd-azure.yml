@@ -86,8 +86,8 @@ jobs:
       run:
         working-directory: ${{ inputs.tf-dir }}
 
-    outputs:
-      tf-outputs: ${{ steps.output.outputs }}
+    outputs:      
+      tf-outputs: ${{ toJson(steps.output.outputs) }}
 
     steps:
       - name: Checkout repo
