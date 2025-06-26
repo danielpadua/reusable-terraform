@@ -22,7 +22,7 @@ on:
     outputs:      
       tf-outputs:
         description: The output of the terraform apply step        
-        value: ${{ jobs.terraform-cd.outputs.tf-outputs }}
+        value: ${{ toJson(jobs.terraform-cd.outputs.tf-outputs) }}
     
     secrets:
       AZURE_CLIENT_ID:
